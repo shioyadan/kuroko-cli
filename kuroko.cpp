@@ -4,42 +4,30 @@
 #pragma comment(lib, "winspool.lib")
 #include <windows.h>
 #include <winspool.h>
+
 #include <string>
 #include <vector>
+#include <functional>
+#include <regex>
 
+#define wfopen _wfopen
 using namespace std;
 
-string WStringToString(const wstring& str)
-{
-    const size_t length = str.size()*4+1;
-    char *buf = new char[length];
-    WideCharToMultiByte(CP_ACP, 0, str.c_str(), -1, buf, length, NULL, NULL);
-    string ret(buf);
-    delete[] buf;
-    return ret;
-}
 
-wstring StringToWString(const string& str)
-{
-    wchar_t *buf = new wchar_t[str.size()+1];
-    MultiByteToWideChar(CP_ACP, 0, str.c_str(), -1, buf, str.size()+1);
-    wstring ret(buf);
-    delete[] buf;
-    return ret;
-}
+//
+// Helper functions
+//
 
 template <typename ... T>
-string Format(const string& fmt, T ... args)
-{
+string Format(const string& fmt, T ... args) {
     size_t length = snprintf(nullptr, 0, fmt.c_str(), args ...);
     vector<char> buf(length + 1);
     snprintf(&buf[0], length + 1, fmt.c_str(), args ...);
     return string(&buf[0], &buf[length]);
 }
 
-bool LoadBinary(vector<BYTE> *dat, const char* file_name)
-{
-    FILE *file = fopen(file_name, "rb");
+bool LoadBinary(vector<BYTE> *dat, const wchar_t* file_name) {
+    FILE *file = wfopen(file_name, L"rb");
     if(!file)
         return false;
 
@@ -47,17 +35,13 @@ bool LoadBinary(vector<BYTE> *dat, const char* file_name)
     size_t size = ftell(file);
     dat->resize(size);
     fseek(file, 0, SEEK_SET);
-    for(size_t i = 0; i < size; ){
-        size_t read_size = fread(&((*dat)[i]), 1, 256, file);
-        i += read_size;
-    }
+    fread(&((*dat)[0]), 1, size, file);
     fclose(file);
     return true;
 };
 
-bool SaveBinary(const vector<BYTE>& dat, const char* file_name)
-{
-    FILE *file = fopen(file_name, "wb");
+bool SaveBinary(const vector<BYTE>& dat, const wchar_t* file_name) {
+    FILE *file = wfopen(file_name, L"wb");
     if(!file)
         return false;
 
@@ -66,14 +50,73 @@ bool SaveBinary(const vector<BYTE>& dat, const char* file_name)
     return true;
 };
 
+void ReadLine(const vector<BYTE>& in_data, function<void(string)> line_handler) {
+    size_t pos = 0;
+    while(pos < in_data.size()){
+        string line;
+        while (pos < in_data.size()) {
+            BYTE c = in_data[pos];
+            line.push_back(c);
+            pos++;
+            if (c == '\n') {
+                break;                
+            }
+        }
+        line_handler(line);
+    }
+}
 
-int main(int argc, const char* argv[]) {
+wstring ChangeExt(const wstring& base, const wstring& ext) {
+    wregex re(L"^(.+)\\.[^\\.]+$");
+    wstring fmt = L"$1" + ext;
+    wstring ret = regex_replace(base, re, fmt);
+    return ret == base ? ret + ext : ret;
+}
 
+int TrimmingPDF(const wstring& file_name, double pt_size_emf_x, double pt_size_emf_y) {
+
+    // trimming
+    vector<BYTE> in_data;
+    vector<BYTE> out_data;
+    if (!LoadBinary(&in_data, file_name.c_str())) {
+        wprintf(L"Failed reading a temporal file (%s).\n", file_name.c_str());
+        return 1;
+    }
+    
+    // Replace MediaBox and CropBox with the specified values
+    int media_box_count = 0;
+    int crop_box_count = 0;
+    ReadLine(in_data, [&](string line){
+        // These strings are not wchar_t but char.
+        if (line.find("/MediaBox") == 0) {
+            line = Format("/MediaBox [ 0 0 %lf %lf ]\n", pt_size_emf_x, pt_size_emf_y);
+            media_box_count++;
+        }
+        else if (line.find("/CropBox") == 0) {
+            line = Format("/CropBox [ 0 0 %lf %lf ]\n", pt_size_emf_x, pt_size_emf_y);
+            crop_box_count++;
+        }
+        out_data.insert(out_data.end(), line.begin(), line.end());
+    });
+
+    if (media_box_count != 1 || crop_box_count != 1) {
+        wprintf(L"Something wrong happend in a PDF trimming process, so overwriting an output file was caceled.\n");
+        return 1;
+    }
+
+    if (!SaveBinary(out_data, file_name.c_str())) {
+        wprintf(L"Failed writing an output file.\n");
+        return 1;
+    }
+
+    return 0;
+}
+
+bool ConvertEMF_ToPDF(const wstring& input_emf_file_name) {
     wchar_t PRINTER_NAME[] = L"kuroko-printer";
     //wchar_t PRINTER_NAME[] = L"Microsoft Print to PDF";
 
-    wchar_t input_file_name[] = L"mpki.emf";
-
+    wstring output_pdf_file_name = ChangeExt(input_emf_file_name, L".pdf");
 
     // Open kuroko-printer
     HANDLE h_printer = 0;
@@ -87,7 +130,8 @@ int main(int argc, const char* argv[]) {
     }
 
     // Get EMF header information
-    HENHMETAFILE h_emf = GetEnhMetaFile(input_file_name);
+    HENHMETAFILE h_emf = NULL;
+    h_emf = GetEnhMetaFile(input_emf_file_name.c_str());
     ENHMETAHEADER emf_header;
     memset(&emf_header, 0, sizeof(ENHMETAHEADER));
     GetEnhMetaFileHeader(h_emf, sizeof(ENHMETAHEADER), &emf_header);
@@ -153,8 +197,8 @@ int main(int argc, const char* argv[]) {
     DOCINFO doc_info;
     memset(&doc_info, 0, sizeof(DOCINFO));
     doc_info.cbSize = sizeof(DOCINFO);
-    doc_info.lpszDocName = input_file_name;
-    doc_info.lpszOutput = L"_mpki.pdf";  // output file name
+    doc_info.lpszDocName = input_emf_file_name.c_str();
+    doc_info.lpszOutput = output_pdf_file_name.c_str();  // output file name
 
     StartDoc(hdc_printer, &doc_info);
     StartPage(hdc_printer);
@@ -177,39 +221,17 @@ int main(int argc, const char* argv[]) {
     ClosePrinter(h_printer);
 
 
-    // Crop
-    vector<BYTE> in_data;
-    vector<BYTE> out_data;
-    if (!LoadBinary(&in_data, "_mpki.pdf")) {
-        printf("Failed reading a temporal file.");
-        return 1;
-    }
-    size_t pos = 0;
-    while(pos < in_data.size()){
-        string str_line;
-        while (pos < in_data.size()) {
-            BYTE c = in_data[pos];
-            str_line.push_back(c);
-            pos++;
-            if (c == '\n') {
-                break;                
-            }
-        }
-        // Modify MediaBox and CropBox
-        // A unit of the positions is pt (1/72 inchi)
-        if (str_line.find("/MediaBox") == 0) {
-            str_line = Format("/MediaBox [ 0 0 %lf %lf ]\n", inchi_size_emf_x * 72, inchi_size_emf_y * 72);
-        }
-        else if (str_line.find("/CropBox") == 0) {
-            str_line = Format("/CropBox [ 0 0 %lf %lf ]\n", inchi_size_emf_x * 72, inchi_size_emf_y * 72);
-        }
-        out_data.insert(out_data.end(), str_line.begin(), str_line.end());
-    }
-    if (!SaveBinary(out_data, "mpki.pdf")) {
-        printf("Failed writing an output file.");
-        return 1;
-    }
+    // Trimming
+    // Modify MediaBox and CropBox
+    // A unit of the positions is pt (1/72 inchi)
+    double pt_size_emf_x = inchi_size_emf_x * 72;
+    double pt_size_emf_y = inchi_size_emf_y * 72;
+    int retTrimmingPDF =  TrimmingPDF(output_pdf_file_name.c_str(), pt_size_emf_x, pt_size_emf_y);
+    return retTrimmingPDF;
 
-    return 0;
+}
+
+int main(int argc, const char* argv[]) {
+    return ConvertEMF_ToPDF(L"mpki.emf");
 }
 
