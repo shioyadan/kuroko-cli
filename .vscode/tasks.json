@@ -1,0 +1,55 @@
+{
+    "version": "2.0.0",
+
+    // Configuration for cygwin
+    "windows": {
+        "options": {
+            "shell": {
+                "executable": "${workspaceRoot}/build_shell.bat",
+                "args": [
+                ]
+            }
+        }
+    },
+
+    "echoCommand": true,
+    "type": "shell",
+    "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+    },
+    "options": {
+        "cwd": "${workspaceRoot}"
+    },
+    "tasks": [
+        {
+            "label": "make",
+            "command": "nmake",
+            "args": [],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
+            "label": "run",
+            "command": "nmake",
+            "args": [
+                "run"
+            ],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        },
+        {
+            "label": "clean",
+            "command": "nmake",
+            "args": [
+                "clean"
+            ],
+            "problemMatcher": []
+        }
+    ]
+}

@@ -1,0 +1,8 @@
+*.pdb
+*.obj
+*.gpd
+*.exe
+*.ilk
+
+*.pdf
+*.emf
