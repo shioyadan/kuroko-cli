@@ -9,7 +9,7 @@
             "type": "cppvsdbg",
             "request": "launch",
             "program": "${workspaceFolder}/kuroko.exe",
-            "args": [],
+            "args": ["-c", "test.emf", "test.pdf"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

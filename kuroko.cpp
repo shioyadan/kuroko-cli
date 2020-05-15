@@ -1,9 +1,12 @@
 #define _UNICODE
 #define UNICODE
 
+#define GDIPVER 0x0110
 #pragma comment(lib, "winspool.lib")
+#pragma comment(lib, "gdiplus.lib") 
 #include <windows.h>
 #include <winspool.h>
+#include <gdiplus.h>
 
 #include <string>
 #include <vector>
@@ -11,6 +14,8 @@
 #include <regex>
 
 #define wfopen _wfopen
+
+using namespace Gdiplus;
 using namespace std;
 
 
@@ -112,11 +117,9 @@ int TrimmingPDF(const wstring& file_name, double pt_size_emf_x, double pt_size_e
     return 0;
 }
 
-bool ConvertEMF_ToPDF(const wstring& input_emf_file_name) {
+bool ConvertEMF_ToPDF(const wstring& output_pdf_file_name, HENHMETAFILE h_emf) {
     wchar_t PRINTER_NAME[] = L"kuroko-printer";
     //wchar_t PRINTER_NAME[] = L"Microsoft Print to PDF";
-
-    wstring output_pdf_file_name = ChangeExt(input_emf_file_name, L".pdf");
 
     // Open kuroko-printer
     HANDLE h_printer = 0;
@@ -130,8 +133,6 @@ bool ConvertEMF_ToPDF(const wstring& input_emf_file_name) {
     }
 
     // Get EMF header information
-    HENHMETAFILE h_emf = NULL;
-    h_emf = GetEnhMetaFile(input_emf_file_name.c_str());
     ENHMETAHEADER emf_header;
     memset(&emf_header, 0, sizeof(ENHMETAHEADER));
     GetEnhMetaFileHeader(h_emf, sizeof(ENHMETAHEADER), &emf_header);
@@ -181,23 +182,33 @@ bool ConvertEMF_ToPDF(const wstring& input_emf_file_name) {
     int margins_x = GetDeviceCaps(hdc_printer, PHYSICALWIDTH) - GetDeviceCaps(hdc_printer, HORZRES);
     int margins_y = GetDeviceCaps(hdc_printer, PHYSICALHEIGHT) - GetDeviceCaps(hdc_printer, VERTRES);
 
-    // a unit of rclFrame is 1/100 mm?
-    double inchi_size_emf_x = (double)(emf_header.rclFrame.right - emf_header.rclFrame.left) / 100 / 10 / 2.54;
-    double inchi_size_emf_y = (double)(emf_header.rclFrame.bottom - emf_header.rclFrame.top) / 100 / 10 / 2.54;
-    int pixel_size_emf_x = (int)(inchi_size_emf_x * x_pixels_per_inch);
-    int pixel_size_emf_y = (int)(inchi_size_emf_y * y_pixels_per_inch);
     // a unit of dmPaperWidth/dmPaperLength is 1/10 mm
     int pixel_size_page_x = (int)((double)printer_info->pDevMode->dmPaperWidth * 10 / 1000 / 2.54 * x_pixels_per_inch);
     int pixel_size_page_y = (int)((double)printer_info->pDevMode->dmPaperLength * 10 / 1000 / 2.54 * y_pixels_per_inch);
-
     GlobalUnlock(h_mem);
     GlobalFree(h_mem);
+
+    // a unit of rclFrame is 1/100 mm?
+    double inch_size_emf_x = (double)(emf_header.rclFrame.right - emf_header.rclFrame.left) / 100 / 10 / 2.54;
+    double inch_size_emf_y = (double)(emf_header.rclFrame.bottom - emf_header.rclFrame.top) / 100 / 10 / 2.54;
+    int pixel_size_emf_x = (int)(inch_size_emf_x * x_pixels_per_inch);
+    int pixel_size_emf_y = (int)(inch_size_emf_y * y_pixels_per_inch);
+
+    // Compensate the picture size to if the size is larger than the paper size.
+    if (pixel_size_emf_x > pixel_size_page_x) {
+        pixel_size_emf_y = pixel_size_emf_y * pixel_size_page_x /pixel_size_emf_x;
+        pixel_size_emf_x = pixel_size_page_x;
+    }
+    if (pixel_size_emf_y > pixel_size_page_y) {
+        pixel_size_emf_x = pixel_size_emf_x * pixel_size_page_y /pixel_size_emf_y;
+        pixel_size_emf_y = pixel_size_page_y;
+    }
 
     // 
     DOCINFO doc_info;
     memset(&doc_info, 0, sizeof(DOCINFO));
     doc_info.cbSize = sizeof(DOCINFO);
-    doc_info.lpszDocName = input_emf_file_name.c_str();
+    doc_info.lpszDocName = output_pdf_file_name.c_str();
     doc_info.lpszOutput = output_pdf_file_name.c_str();  // output file name
 
     StartDoc(hdc_printer, &doc_info);
@@ -211,27 +222,91 @@ bool ConvertEMF_ToPDF(const wstring& input_emf_file_name) {
         pixel_size_emf_x, 
         pixel_size_page_y
     };
+
+#if 1
     PlayEnhMetaFile(hdc_printer, h_emf, &rect);
+#else
+    // Initialize GDI+.
+    GdiplusStartupInput gdiplusStartupInput;
+    ULONG_PTR gdiplusToken;
+    GdiplusStartup(&gdiplusToken, &gdiplusStartupInput, NULL);
+
+    Graphics* graphics = new Graphics(hdc_printer, h_printer);
+    graphics->SetPageUnit(UnitPixel); 
+    
+    //wstring input_emf_file_name = ChangeExt(output_pdf_file_name, L".emf");
+    //CopyEnhMetaFile(h_emf, input_emf_file_name.c_str());
+    Metafile* metafile = new Metafile(h_emf);
+    auto metaGraphics = new Graphics(GetDC(NULL));
+    auto result = metafile->ConvertToEmfPlus(graphics, NULL, EmfTypeEmfPlusDual, NULL);
+    graphics->DrawImage(metafile, rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
+    delete metafile;
+    delete graphics;
+#endif 
 
     // Close handles
-    DeleteEnhMetaFile(h_emf);
     EndPage(hdc_printer);
     EndDoc(hdc_printer);
     DeleteDC(hdc_printer);
     ClosePrinter(h_printer);
 
-
+#if 0
+    return 0;
+#else    
     // Trimming
     // Modify MediaBox and CropBox
-    // A unit of the positions is pt (1/72 inchi)
-    double pt_size_emf_x = inchi_size_emf_x * 72;
-    double pt_size_emf_y = inchi_size_emf_y * 72;
-    int retTrimmingPDF =  TrimmingPDF(output_pdf_file_name.c_str(), pt_size_emf_x, pt_size_emf_y);
+    // A unit of the positions is pt (1/72 inch)
+    double pt_size_emf_x = (double)pixel_size_emf_x / x_pixels_per_inch * 72;
+    double pt_size_emf_y = (double)pixel_size_emf_y / y_pixels_per_inch * 72;
+    int retTrimmingPDF = TrimmingPDF(output_pdf_file_name.c_str(), pt_size_emf_x, pt_size_emf_y);
     return retTrimmingPDF;
-
+#endif
 }
 
-int main(int argc, const char* argv[]) {
-    return ConvertEMF_ToPDF(L"mpki.emf");
+
+int wmain(int argc, const wchar_t *argv[]) {
+
+    if (argc >= 3 && wstring(argv[1]) == L"-b") {
+        wstring output_pdf = argv[2];
+
+        HENHMETAFILE h_emf = NULL;
+        if (!IsClipboardFormatAvailable(CF_ENHMETAFILE)) {
+            wprintf(L"Does not contain any EMF data in the clip board.\n");
+            return 1;
+        }
+        OpenClipboard(NULL);
+        h_emf = (HENHMETAFILE)GetClipboardData(CF_ENHMETAFILE);
+        CloseClipboard();
+
+        int ret = ConvertEMF_ToPDF(output_pdf, h_emf);
+        DeleteEnhMetaFile(h_emf);
+        return ret;
+        // For debug, copy 
+        // CopyEnhMetaFile(h_emf, ChangeExt(output_pdf, L".emf").c_str());
+    }
+    else if (argc >=3 && wstring(argv[1]) == L"-c") {
+        wstring input_emf= argv[2];
+        wstring output_pdf = argc >= 4 ? argv[3] : ChangeExt(input_emf, L".pdf");
+
+        auto h_emf = GetEnhMetaFile(input_emf.c_str());
+        if (!h_emf) {
+            wprintf(L"Counld not open %s.\n", input_emf.c_str());
+            return 1;
+        }
+        int ret = ConvertEMF_ToPDF(output_pdf, h_emf);
+        DeleteEnhMetaFile(h_emf);
+        return ret;
+    }
+    else{
+        wprintf(
+            L"Usage: \n"
+            L"  kuroko -b PDF_FILE_NAME\n"
+            L"    Capture clipboard data and convert EMF content to a PDF file.\n"
+            L"  kuroko -c EMF_FILE_NAME [PDF_FILE_NAME]\n"
+            L"    Convert an EMF file to a PDF file.\n"
+        );
+        return 1;
+    }
+
 }
 

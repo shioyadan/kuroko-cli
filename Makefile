@@ -16,7 +16,7 @@ build_release: $(SRCS)
 	@echo ==== Build Successful ====
 
 run: build_debug
-	kuroko.exe
+	kuroko.exe -b test.pdf
 
 clean:
 	del *.obj *.exe *.ilk *.pdb
