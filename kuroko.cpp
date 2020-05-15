@@ -1,12 +1,23 @@
+// Copyright (C) 2020 Ryota Shioya <shioya@ci.i.u-tokyo.ac.jp>
+// This application is released under the 3-Clause BSD License, see LICENSE.md.
+
 #define _UNICODE
 #define UNICODE
 
-#define GDIPVER 0x0110
+//#define USE_GDI_PLUS
+
+
 #pragma comment(lib, "winspool.lib")
-#pragma comment(lib, "gdiplus.lib") 
 #include <windows.h>
 #include <winspool.h>
+
+#ifdef USE_GDI_PLUS
+#define GDIPVER 0x0110
+#pragma comment(lib, "gdiplus.lib") 
 #include <gdiplus.h>
+using namespace Gdiplus;
+#endif
+
 
 #include <string>
 #include <vector>
@@ -15,7 +26,6 @@
 
 #define wfopen _wfopen
 
-using namespace Gdiplus;
 using namespace std;
 
 
@@ -118,6 +128,8 @@ int TrimmingPDF(const wstring& file_name, double pt_size_emf_x, double pt_size_e
 }
 
 bool ConvertEMF_ToPDF(const wstring& output_pdf_file_name, HENHMETAFILE h_emf) {
+    // Should install a dedicated printer, because  
+    // "Microsoft Print to PDF" denies PRINTER_ALL_ACCESS.
     wchar_t PRINTER_NAME[] = L"kuroko-printer";
     //wchar_t PRINTER_NAME[] = L"Microsoft Print to PDF";
 
@@ -223,7 +235,7 @@ bool ConvertEMF_ToPDF(const wstring& output_pdf_file_name, HENHMETAFILE h_emf) {
         pixel_size_page_y
     };
 
-#if 1
+#ifndef USE_GDI_PLUS
     PlayEnhMetaFile(hdc_printer, h_emf, &rect);
 #else
     // Initialize GDI+.
@@ -234,8 +246,6 @@ bool ConvertEMF_ToPDF(const wstring& output_pdf_file_name, HENHMETAFILE h_emf) {
     Graphics* graphics = new Graphics(hdc_printer, h_printer);
     graphics->SetPageUnit(UnitPixel); 
     
-    //wstring input_emf_file_name = ChangeExt(output_pdf_file_name, L".emf");
-    //CopyEnhMetaFile(h_emf, input_emf_file_name.c_str());
     Metafile* metafile = new Metafile(h_emf);
     auto metaGraphics = new Graphics(GetDC(NULL));
     auto result = metafile->ConvertToEmfPlus(graphics, NULL, EmfTypeEmfPlusDual, NULL);
@@ -301,7 +311,7 @@ int wmain(int argc, const wchar_t *argv[]) {
         wprintf(
             L"Usage: \n"
             L"  kuroko -b PDF_FILE_NAME\n"
-            L"    Capture clipboard data and convert EMF content to a PDF file.\n"
+            L"    Capture EMF data in the clipboard and convert it to a PDF file.\n"
             L"  kuroko -c EMF_FILE_NAME [PDF_FILE_NAME]\n"
             L"    Convert an EMF file to a PDF file.\n"
         );
