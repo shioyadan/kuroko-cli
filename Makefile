@@ -20,3 +20,7 @@ run: build_debug
 
 clean:
 	del *.obj *.exe *.ilk *.pdb
+
+pack:
+	./build_shell.bat nmake build_release
+	zip -r kuroko.zip kuroko.exe *.md docs
