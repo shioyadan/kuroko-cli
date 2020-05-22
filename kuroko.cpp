@@ -104,11 +104,23 @@ int TrimmingPDF(const wstring& file_name, double pt_size_emf_x, double pt_size_e
     ReadLine(in_data, [&](string line){
         // These strings are not wchar_t but char.
         if (line.find("/MediaBox") == 0) {
-            line = Format("/MediaBox [ 0 0 %lf %lf ]\n", pt_size_emf_x, pt_size_emf_y);
+            size_t org_length = line.length();
+            line = Format("/MediaBox [ 0 0 %d %d ]", (int)pt_size_emf_x, (int)pt_size_emf_y);
+            // Padding spaces so that the file size is not changed. 
+            for (size_t i = line.length() + 1; i < org_length; i++) {
+                line += " ";
+            }
+            line += "\n";
             media_box_count++;
         }
         else if (line.find("/CropBox") == 0) {
-            line = Format("/CropBox [ 0 0 %lf %lf ]\n", pt_size_emf_x, pt_size_emf_y);
+            size_t org_length = line.length();
+            // Padding spaces so that the file size is not changed. 
+            line = Format("/CropBox [ 0 0 %d %d ]", (int)pt_size_emf_x, (int)pt_size_emf_y);
+            for (size_t i = line.length() + 1; i < org_length; i++) {
+                line += " ";
+            }
+            line += "\n";
             crop_box_count++;
         }
         out_data.insert(out_data.end(), line.begin(), line.end());
@@ -300,7 +312,7 @@ int wmain(int argc, const wchar_t *argv[]) {
 
         auto h_emf = GetEnhMetaFile(input_emf.c_str());
         if (!h_emf) {
-            wprintf(L"Counld not open %s.\n", input_emf.c_str());
+            wprintf(L"Could not open %s.\n", input_emf.c_str());
             return 1;
         }
         int ret = ConvertEMF_ToPDF(output_pdf, h_emf);
@@ -309,6 +321,7 @@ int wmain(int argc, const wchar_t *argv[]) {
     }
     else{
         wprintf(
+            L"Kuroko version 0.02 \n"
             L"Usage: \n"
             L"  kuroko -b PDF_FILE_NAME\n"
             L"    Capture EMF data in the clipboard and convert it to a PDF file.\n"
