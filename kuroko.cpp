@@ -1,21 +1,21 @@
 // Copyright (C) 2020 Ryota Shioya <shioya@ci.i.u-tokyo.ac.jp>
 // This application is released under the 3-Clause BSD License, see LICENSE.md.
 
-#define _UNICODE
-#define UNICODE
-
+// Use GDI+ for printing
 //#define USE_GDI_PLUS
 
 
+#define _UNICODE
+#define UNICODE
 #pragma comment(lib, "winspool.lib")
 #include <windows.h>
 #include <winspool.h>
 
 #ifdef USE_GDI_PLUS
-#define GDIPVER 0x0110
-#pragma comment(lib, "gdiplus.lib") 
-#include <gdiplus.h>
-using namespace Gdiplus;
+    #define GDIPVER 0x0110
+    #pragma comment(lib, "gdiplus.lib") 
+    #include <gdiplus.h>
+    using namespace Gdiplus;
 #endif
 
 
@@ -25,6 +25,7 @@ using namespace Gdiplus;
 #include <regex>
 
 #define wfopen _wfopen
+
 
 using namespace std;
 
@@ -127,7 +128,7 @@ int TrimmingPDF(const wstring& file_name, double pt_size_emf_x, double pt_size_e
     });
 
     if (media_box_count != 1 || crop_box_count != 1) {
-        wprintf(L"Something wrong happend in a PDF trimming process, so overwriting an output file was caceled.\n");
+        wprintf(L"Something wrong happend in a PDF trimming process, so overwriting an output file was canceled.\n");
         return 1;
     }
 
