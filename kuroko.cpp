@@ -4,6 +4,11 @@
 
 const auto VERSION_STR = L"Kuroko version 0.02";
 
+// Should install a dedicated printer, because  
+// the preinstalled "Microsoft Print to PDF" denies PRINTER_ALL_ACCESS.
+wchar_t PRINTER_NAME[] = L"kuroko-printer";
+//wchar_t PRINTER_NAME[] = L"Microsoft Print to PDF";
+
 // Use GDI+ for printing
 //#define USE_GDI_PLUS
 
@@ -28,7 +33,8 @@ const auto VERSION_STR = L"Kuroko version 0.02";
 #include <regex>
 
 #define wfopen _wfopen
-
+#define wsystem _wsystem
+#define snwprintf _snwprintf
 
 using namespace std;
 
@@ -43,6 +49,14 @@ string Format(const string& fmt, T ... args) {
     vector<char> buf(length + 1);
     snprintf(&buf[0], length + 1, fmt.c_str(), args ...);
     return string(&buf[0], &buf[length]);
+}
+
+template <typename ... T>
+wstring WFormat(const wstring& fmt, T ... args) {
+    size_t length = snwprintf(nullptr, 0, fmt.c_str(), args ...);
+    vector<wchar_t> buf(length + 1);
+    snwprintf(&buf[0], length + 1, fmt.c_str(), args ...);
+    return wstring(&buf[0], &buf[length]);
 }
 
 bool LoadBinary(vector<BYTE> *dat, const wchar_t* file_name) {
@@ -143,18 +157,40 @@ int TrimmingPDF(const wstring& file_name, double pt_size_emf_x, double pt_size_e
     return 0;
 }
 
-bool ConvertEMF_ToPDF(const wstring& output_pdf_file_name, HENHMETAFILE h_emf) {
-    // Should install a dedicated printer, because  
-    // "Microsoft Print to PDF" denies PRINTER_ALL_ACCESS.
-    wchar_t PRINTER_NAME[] = L"kuroko-printer";
-    //wchar_t PRINTER_NAME[] = L"Microsoft Print to PDF";
-
+HANDLE OpenKurokoPrinter() {
     // Open kuroko-printer
     HANDLE h_printer = 0;
     PRINTER_DEFAULTS pdef;
     memset(&pdef, 0, sizeof(PRINTER_DEFAULTS));
     pdef.DesiredAccess = PRINTER_ALL_ACCESS;
     OpenPrinter(PRINTER_NAME, &h_printer, &pdef);
+    return h_printer;
+}
+
+bool InstallKurokoPrinter() {
+    // Delete a previously installed printer 
+    auto DELETE_PRINTER = WFormat(L"printui.exe /q /dl /n \"%s\"", PRINTER_NAME);
+
+    // Install a new printer
+    WCHAR windir[MAX_PATH];
+    GetWindowsDirectory(windir, MAX_PATH);
+    auto INSTALL_PRINTER = WFormat(
+        L"printui.exe /if /f \"%s\\inf\\ntprint.inf\" /b \"%s\" /r \"FILE:\" /m \"Microsoft Print to PDF\"",
+        windir, PRINTER_NAME
+    );
+
+    wprintf((DELETE_PRINTER + L"\n").c_str());
+    wsystem(DELETE_PRINTER.c_str());
+
+    wprintf((INSTALL_PRINTER + L"\n").c_str());
+    auto ret = wsystem(INSTALL_PRINTER.c_str());
+    return ret == 0 ? true : false;
+}
+
+bool ConvertEMF_ToPDF(const wstring& output_pdf_file_name, HENHMETAFILE h_emf) {
+
+    // Open kuroko-printer
+    HANDLE h_printer = OpenKurokoPrinter();
     if(h_printer == NULL) {
         wprintf(L"Could not open the \"%s\" printer (%d). \n", PRINTER_NAME, GetLastError());
         return 1;
@@ -322,6 +358,28 @@ int wmain(int argc, const wchar_t *argv[]) {
         int ret = ConvertEMF_ToPDF(output_pdf, h_emf);
         DeleteEnhMetaFile(h_emf);
         return ret;
+    }
+    else if (argc == 2 && wstring(argv[1]) == L"-k") {
+        auto printer = OpenKurokoPrinter();
+        if (printer == NULL) {
+            wprintf(L"Could not open the printer \"%s\"\n", PRINTER_NAME);
+            return 1;
+        }
+        else {
+            wprintf(L"Successfully opened the printer \"%s\"\n", PRINTER_NAME);
+            ClosePrinter(printer);
+            return 0;
+        }
+    }
+    else if (argc == 2 && wstring(argv[1]) == L"-i") {
+        if (InstallKurokoPrinter()) {
+            wprintf(L"Successfully installed the printer \"%s\"\n", PRINTER_NAME);
+            return 0;
+        }
+        else {
+            wprintf(L"Could not install the printer \"%s\"\n", PRINTER_NAME);
+            return 1;
+        }
     }
     else{
         wprintf(VERSION_STR);

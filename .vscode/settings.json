@@ -1,13 +1,18 @@
 {
     "files.associations": {
+        "*.pzc": "cpp",
         "functional": "cpp",
-        "xstring": "cpp"
+        "xstring": "cpp",
+        "cstdlib": "cpp",
+        "system_error": "cpp"
     },
     "cSpell.words": [
         "gdiplus",
         "gdipver",
         "hglobal",
+        "printui",
         "wfopen",
-        "wregex"
+        "wregex",
+        "wsystem"
     ]
 }
