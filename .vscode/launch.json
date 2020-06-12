@@ -8,7 +8,7 @@
             "name": "(Windows) 起動",
             "type": "cppvsdbg",
             "request": "launch",
-            "program": "${workspaceFolder}/kuroko.exe",
+            "program": "${workspaceFolder}/kuroko-cli.exe",
             "args": ["-c", "test.emf", "test.pdf"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",

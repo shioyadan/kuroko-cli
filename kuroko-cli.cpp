@@ -2,7 +2,7 @@
 // This application is released under the 3-Clause BSD License, see LICENSE.md.
 
 
-const auto VERSION_STR = L"Kuroko version 0.02";
+const auto VERSION_STR = L"Kuroko version 0.03";
 
 // Should install a dedicated printer, because  
 // the preinstalled "Microsoft Print to PDF" denies PRINTER_ALL_ACCESS.
@@ -193,7 +193,7 @@ bool ConvertEMF_ToPDF(const wstring& output_pdf_file_name, HENHMETAFILE h_emf) {
     HANDLE h_printer = OpenKurokoPrinter();
     if(h_printer == NULL) {
         wprintf(L"Could not open the \"%s\" printer (%d). \n", PRINTER_NAME, GetLastError());
-        wprintf(L"You should install the printer by executing \"kuroko.exe -i\" before use.\n");
+        wprintf(L"You should install the printer by executing \"kuroko-cli.exe -i\" before use.\n");
         return 1;
     }
 
