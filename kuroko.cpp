@@ -193,6 +193,7 @@ bool ConvertEMF_ToPDF(const wstring& output_pdf_file_name, HENHMETAFILE h_emf) {
     HANDLE h_printer = OpenKurokoPrinter();
     if(h_printer == NULL) {
         wprintf(L"Could not open the \"%s\" printer (%d). \n", PRINTER_NAME, GetLastError());
+        wprintf(L"You should install the printer by executing \"kuroko.exe -i\" before use.\n");
         return 1;
     }
 
@@ -362,22 +363,22 @@ int wmain(int argc, const wchar_t *argv[]) {
     else if (argc == 2 && wstring(argv[1]) == L"-k") {
         auto printer = OpenKurokoPrinter();
         if (printer == NULL) {
-            wprintf(L"Could not open the printer \"%s\"\n", PRINTER_NAME);
+            wprintf(L"Could not open the printer \"%s\".\n", PRINTER_NAME);
             return 1;
         }
         else {
-            wprintf(L"Successfully opened the printer \"%s\"\n", PRINTER_NAME);
+            wprintf(L"Successfully opened the printer \"%s\".\n", PRINTER_NAME);
             ClosePrinter(printer);
             return 0;
         }
     }
     else if (argc == 2 && wstring(argv[1]) == L"-i") {
         if (InstallKurokoPrinter()) {
-            wprintf(L"Successfully installed the printer \"%s\"\n", PRINTER_NAME);
+            wprintf(L"Successfully installed the printer \"%s\".\n", PRINTER_NAME);
             return 0;
         }
         else {
-            wprintf(L"Could not install the printer \"%s\"\n", PRINTER_NAME);
+            wprintf(L"Could not install the printer \"%s\".\n", PRINTER_NAME);
             return 1;
         }
     }
@@ -389,6 +390,10 @@ int wmain(int argc, const wchar_t *argv[]) {
             L"    Capture EMF data in a clipboard and convert it to a PDF file.\n"
             L"  kuroko -c EMF_FILE_NAME [PDF_FILE_NAME]\n"
             L"    Convert an EMF file to a PDF file.\n"
+            L"  kuroko -i\n"
+            L"    Install a dedicated printer for Kuroko. You should install it before use.\n"
+            L"  kuroko -k\n"
+            L"    Check whether a dedicated printer is installed.\n"
         );
         return 1;
     }
