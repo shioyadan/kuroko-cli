@@ -1,6 +1,9 @@
 // Copyright (C) 2020 Ryota Shioya <shioya@ci.i.u-tokyo.ac.jp>
 // This application is released under the 3-Clause BSD License, see LICENSE.md.
 
+
+const auto VERSION_STR = L"Kuroko version 0.02";
+
 // Use GDI+ for printing
 //#define USE_GDI_PLUS
 
@@ -321,11 +324,11 @@ int wmain(int argc, const wchar_t *argv[]) {
         return ret;
     }
     else{
+        wprintf(VERSION_STR);
         wprintf(
-            L"Kuroko version 0.02 \n"
-            L"Usage: \n"
+            L"\nUsage: \n"
             L"  kuroko -b PDF_FILE_NAME\n"
-            L"    Capture EMF data in the clipboard and convert it to a PDF file.\n"
+            L"    Capture EMF data in a clipboard and convert it to a PDF file.\n"
             L"  kuroko -c EMF_FILE_NAME [PDF_FILE_NAME]\n"
             L"    Convert an EMF file to a PDF file.\n"
         );
