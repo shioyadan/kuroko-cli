@@ -2,7 +2,7 @@
 // This application is released under the 3-Clause BSD License, see LICENSE.md.
 
 
-const auto VERSION_STR = L"Kuroko version 0.03";
+const auto VERSION_STR = L"Kuroko version 0.04";
 
 // Should install a dedicated printer, because  
 // the preinstalled "Microsoft Print to PDF" denies PRINTER_ALL_ACCESS.
@@ -319,8 +319,10 @@ bool ConvertEMF_ToPDF(const wstring& output_pdf_file_name, HENHMETAFILE h_emf) {
     // Trimming
     // Modify MediaBox and CropBox
     // A unit of the positions is pt (1/72 inch)
-    double pt_size_emf_x = (double)pixel_size_emf_x / x_pixels_per_inch * 72;
-    double pt_size_emf_y = (double)pixel_size_emf_y / y_pixels_per_inch * 72;
+    // Since trimming is performed with integer values, 
+    // the edges may be cut off. Therefore, ceil is performed.
+    double pt_size_emf_x = ceil((double)pixel_size_emf_x / x_pixels_per_inch * 72);
+    double pt_size_emf_y = ceil((double)pixel_size_emf_y / y_pixels_per_inch * 72);
     int retTrimmingPDF = TrimmingPDF(output_pdf_file_name.c_str(), pt_size_emf_x, pt_size_emf_y);
     return retTrimmingPDF;
 #endif

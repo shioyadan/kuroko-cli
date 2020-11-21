@@ -4,7 +4,8 @@
         "functional": "cpp",
         "xstring": "cpp",
         "cstdlib": "cpp",
-        "system_error": "cpp"
+        "system_error": "cpp",
+        "cmath": "cpp"
     },
     "cSpell.words": [
         "gdiplus",
